@@ -38,11 +38,15 @@ export const ReviewStore = {
     return reviews;
   },
 
-  async add(item: Omit<BookReview, "id">) {
-    await db.collection(REVIEWS).add(item);
+  async add(item: Omit<BookReview, "id">): Promise<BookReview> {
+    const ref = await db.collection(REVIEWS).add(item);
+    return { ...item, id: ref.id };
   },
 
-  async update(id: string, item: Omit<BookReview, "id">) {
+  async update(
+    id: string,
+    item: Omit<BookReview, "id">
+  ): Promise<BookReview | null> {
     const ref = db.collection(REVIEWS);
     ref.where("id", "==", id);
     const snapshot = await ref.get();
@@ -54,9 +58,11 @@ export const ReviewStore = {
       review = doc.data() as BookReview;
     });
 
-    if (!review) return;
+    if (!review) return null;
 
     await db.collection(REVIEWS).doc(id).update(item);
+
+    return { ...item, id };
   },
 
   async delete(id: string) {

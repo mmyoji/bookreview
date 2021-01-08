@@ -40,13 +40,13 @@ export async function createReview(req: NowRequest, res: NowResponse) {
     return;
   }
 
-  await ReviewStore.add({
+  const review = await ReviewStore.add({
     title,
     body,
     score,
     reviewer,
   });
-  res.status(201).end();
+  res.status(201).send({ ...review });
 }
 
 // PUT /api/reviews/:id
@@ -61,14 +61,19 @@ export async function updateReview(req: NowRequest, res: NowResponse) {
     return;
   }
 
-  await ReviewStore.update(id, {
+  const review = await ReviewStore.update(id, {
     title,
     body,
     score,
     reviewer,
   });
 
-  res.status(204).end();
+  if (!review) {
+    res.status(404).end();
+    return;
+  }
+
+  res.status(200).send({ ...review });
 }
 
 // DELETE /api/reviews/:id
