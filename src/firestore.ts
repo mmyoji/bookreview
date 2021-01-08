@@ -1,4 +1,4 @@
-import admin from "firebase-admin";
+import admin, { firestore } from "firebase-admin";
 
 import { BookReview } from "./interfaces";
 
@@ -13,6 +13,15 @@ admin.initializeApp({
 
 const db = admin.firestore();
 const REVIEWS = "reviews";
+const { Timestamp } = firestore;
+
+function toISOString(createdAt: any): string {
+  if ("toDate" in createdAt) {
+    return createdAt.toDate().toISOString();
+  }
+
+  return "";
+}
 
 export const ReviewStore = {
   async get(id?: string): Promise<BookReview | BookReview[] | null> {
@@ -20,6 +29,7 @@ export const ReviewStore = {
     if (id) {
       ref.where("id", "==", id);
     }
+    ref.orderBy("createdAt", "desc");
     const snapshot = await ref.get();
 
     const reviews: BookReview[] = [];
@@ -28,7 +38,12 @@ export const ReviewStore = {
         return;
       }
 
-      reviews.push({ ...doc.data(), id: doc.id } as BookReview);
+      const data = doc.data();
+      reviews.push({
+        ...data,
+        id: doc.id,
+        createdAt: toISOString(data.createdAt),
+      } as BookReview);
     });
 
     if (id) {
@@ -39,8 +54,10 @@ export const ReviewStore = {
   },
 
   async add(item: Omit<BookReview, "id">): Promise<BookReview> {
-    const ref = await db.collection(REVIEWS).add(item);
-    return { ...item, id: ref.id };
+    const current = new Date();
+    const createdAt = Timestamp.fromDate(current);
+    const ref = await db.collection(REVIEWS).add({ ...item, createdAt });
+    return { ...item, id: ref.id, createdAt: current.toISOString() };
   },
 
   async update(
@@ -55,14 +72,22 @@ export const ReviewStore = {
     snapshot.forEach((doc) => {
       if (!doc.exists) return;
 
-      review = doc.data() as BookReview;
+      const data = doc.data();
+      review = {
+        ...data,
+        createdAt: toISOString(data.createdAt),
+      } as BookReview;
     });
 
     if (!review) return null;
 
     await db.collection(REVIEWS).doc(id).update(item);
 
-    return { ...item, id };
+    return {
+      ...item,
+      id,
+      createdAt: review!.createdAt,
+    };
   },
 
   async delete(id: string) {
